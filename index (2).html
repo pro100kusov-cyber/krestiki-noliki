@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Крестики-нолики</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #111 url('bg.jpg') center/cover no-repeat fixed;
+    color: #fff;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 20px;
+    color: #4ab3f4;
+    text-shadow: 0 0 20px rgba(74,179,244,0.5);
+  }
+
+  .mode-switch {
+    display: flex;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 14px;
+    gap: 4px;
+  }
+
+  .mode-btn {
+    flex: 1; padding: 8px; border: none; border-radius: 7px;
+    background: transparent; color: #888; font-size: 12px;
+    font-weight: 700; cursor: pointer;
+  }
+  .mode-btn.active { background: #333; color: #fff; }
+
+  .difficulty { display: flex; gap: 6px; margin-bottom: 14px; justify-content: center; }
+
+  .diff-btn {
+    padding: 6px 12px; border: 1px solid #333; border-radius: 7px;
+    background: rgba(0,0,0,0.5); color: #888; font-size: 11px;
+    font-weight: 700; cursor: pointer;
+  }
+  .diff-btn.active { border-color: #4ab3f4; color: #4ab3f4; }
+
+  .scoreboard {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+
+  .score-card {
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+  .score-card.x-card { border-top: 3px solid #4ab3f4; }
+  .score-card.o-card { border-top: 3px solid #f4834a; }
+  .score-card .label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; margin-bottom: 3px; }
+  .score-card.x-card .label { color: #4ab3f4; }
+  .score-card.o-card .label { color: #f4834a; }
+  .score-card .val { font-size: 28px; font-weight: 900; }
+  .score-card.x-card .val { color: #4ab3f4; }
+  .score-card.o-card .val { color: #f4834a; }
+
+  .score-draw { text-align: center; }
+  .score-draw span { font-size: 9px; color: #888; display: block; }
+  .score-draw .val { font-size: 18px; font-weight: 700; color: #888; }
+
+  .status-bar { text-align: center; margin-bottom: 10px; height: 26px; }
+  .status-text { font-size: 13px; font-weight: 700; }
+  .status-text.x { color: #4ab3f4; }
+  .status-text.o { color: #f4834a; }
+  .status-text.draw { color: #aaa; }
+
+  .thinking { text-align: center; font-size: 11px; color: #aaa; margin-bottom: 6px; height: 16px; font-style: italic; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .cell {
+    aspect-ratio: 1;
+    background: rgba(0,0,0,0.65);
+    border: 1px solid #444;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 38px;
+    font-weight: 900;
+    transition: transform 0.1s, border-color 0.15s;
+    user-select: none;
+  }
+  .cell:hover:not(.taken):not(.disabled) { border-color: #666; transform: scale(1.04); }
+  .cell.x { color: #4ab3f4; border-color: rgba(74,179,244,0.4); }
+  .cell.o { color: #f4834a; border-color: rgba(244,131,74,0.4); }
+  .cell.win.x { background: rgba(74,179,244,0.2); border-color: #4ab3f4; box-shadow: 0 0 16px rgba(74,179,244,0.4); }
+  .cell.win.o { background: rgba(244,131,74,0.2); border-color: #f4834a; box-shadow: 0 0 16px rgba(244,131,74,0.4); }
+  .cell.disabled { cursor: default; }
+
+  .btn-reset {
+    width: 100%; padding: 12px;
+    background: rgba(0,0,0,0.6); border: 1px solid #444;
+    border-radius: 10px; color: #888; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.1em; cursor: pointer;
+  }
+  .btn-reset:hover { border-color: #666; color: #fff; }
+</style>
+</head>
+<body>
+<div class="overlay"></div>
+<div class="container">
+  <h1>Крестики-нолики</h1>
+
+  <div class="mode-switch">
+    <button class="mode-btn active" id="btn2p" onclick="setMode('2p')">👥 Два игрока</button>
+    <button class="mode-btn" id="btnAI" onclick="setMode('ai')">🤖 Против компьютера</button>
+  </div>
+
+  <div class="difficulty" id="diffPanel" style="display:none">
+    <button class="diff-btn active" id="d-easy" onclick="setDiff('easy')">ЛЕГКО</button>
+    <button class="diff-btn" id="d-medium" onclick="setDiff('medium')">СРЕДНЕ</button>
+    <button class="diff-btn" id="d-hard" onclick="setDiff('hard')">СЛОЖНО</button>
+  </div>
+
+  <div class="scoreboard">
+    <div class="score-card x-card"><div class="label" id="labelX">ИГРОК X</div><div class="val" id="sx">0</div></div>
+    <div class="score-draw"><span>НИЧЬЯ</span><div class="val" id="sd">0</div></div>
+    <div class="score-card o-card"><div class="label" id="labelO">ИГРОК O</div><div class="val" id="so">0</div></div>
+  </div>
+
+  <div class="status-bar"><div class="status-text x" id="status">Ход игрока X</div></div>
+  <div class="thinking" id="thinking"></div>
+  <div class="board" id="board"></div>
+  <button class="btn-reset" onclick="init()">НОВАЯ ИГРА</button>
+</div>
+
+<script>
+  const WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  let board,cur,over,mode='2p',diff='easy',score={X:0,O:0,D:0},aiThinking=false;
+
+  function setMode(m){
+    mode=m;
+    document.getElementById('btn2p').classList.toggle('active',m==='2p');
+    document.getElementById('btnAI').classList.toggle('active',m==='ai');
+    document.getElementById('diffPanel').style.display=m==='ai'?'flex':'none';
+    document.getElementById('labelX').textContent=m==='ai'?'ВЫ (X)':'ИГРОК X';
+    document.getElementById('labelO').textContent=m==='ai'?'КОМПЬЮТЕР':'ИГРОК O';
+    score={X:0,O:0,D:0};updateScore();init();
+  }
+
+  function setDiff(d){
+    diff=d;
+    ['easy','medium','hard'].forEach(x=>document.getElementById('d-'+x).classList.toggle('active',x===d));
+    init();
+  }
+
+  function init(){
+    board=Array(9).fill('');cur='X';over=false;aiThinking=false;
+    document.getElementById('thinking').textContent='';
+    setStatus(mode==='ai'?'Ваш ход':'Ход игрока X','x');render();
+  }
+
+  function setStatus(t,c){const el=document.getElementById('status');el.textContent=t;el.className='status-text '+c;}
+
+  function render(){
+    const el=document.getElementById('board');el.innerHTML='';
+    board.forEach((v,i)=>{
+      const c=document.createElement('div');
+      const dis=aiThinking||(mode==='ai'&&cur==='O');
+      c.className='cell'+(v?' taken '+v.toLowerCase():'')+(dis&&!v?' disabled':'');
+      c.textContent=v;c.onclick=()=>move(i);el.appendChild(c);
+    });
+  }
+
+  function checkWin(){for(const[a,b,c]of WINS)if(board[a]&&board[a]===board[b]&&board[b]===board[c])return[a,b,c];return null;}
+
+  function move(i){
+    if(over||board[i]||aiThinking)return;
+    if(mode==='ai'&&cur==='O')return;
+    board[i]=cur;render();
+    if(handleResult())return;
+    cur=cur==='X'?'O':'X';
+    if(mode==='ai'&&cur==='O'&&!over){
+      aiThinking=true;document.getElementById('thinking').textContent='Компьютер думает...';
+      setStatus('Ход компьютера','o');render();
+      setTimeout(()=>{
+        board[aiMove()]='O';aiThinking=false;
+        document.getElementById('thinking').textContent='';
+        render();if(handleResult())return;
+        cur='X';setStatus('Ваш ход','x');render();
+      },400+Math.random()*400);
+    }else if(mode==='2p')setStatus('Ход игрока '+cur,cur.toLowerCase());
+  }
+
+  function handleResult(){
+    const w=checkWin();
+    if(w){
+      over=true;score[cur]++;updateScore();
+      setStatus(mode==='ai'?(cur==='X'?'Вы победили! 🎉':'Компьютер победил! 🤖'):cur+' победил! 🎉',cur.toLowerCase());
+      document.querySelectorAll('.cell').forEach((c,i)=>{if(w.includes(i))c.classList.add('win');});
+      return true;
+    }
+    if(board.every(v=>v)){over=true;score.D++;updateScore();setStatus('Ничья!','draw');return true;}
+    return false;
+  }
+
+  function updateScore(){
+    document.getElementById('sx').textContent=score.X;
+    document.getElementById('so').textContent=score.O;
+    document.getElementById('sd').textContent=score.D;
+  }
+
+  function aiMove(){if(diff==='easy')return aiEasy();if(diff==='medium')return aiMedium();return aiBest('O').idx;}
+
+  function aiEasy(){
+    if(Math.random()<0.4){const e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);return e[Math.floor(Math.random()*e.length)];}
+    return aiMedium();
+  }
+
+  function aiMedium(){
+    const w=findW('O');if(w!==-1)return w;
+    const b=findW('X');if(b!==-1)return b;
+    const e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);return e[Math.floor(Math.random()*e.length)];
+  }
+
+  function findW(p){
+    for(const[a,b,c]of WINS){const l=[board[a],board[b],board[c]],cs=[a,b,c];
+    if(l.filter(v=>v===p).length===2&&l.filter(v=>v==='').length===1)return cs[l.indexOf('')];}return -1;
+  }
+
+  function aiBest(p){
+    const o=p==='O'?'X':'O';
+    if(WINS.some(([a,b,c])=>board[a]===p&&board[b]===p&&board[c]===p))return{score:10};
+    if(WINS.some(([a,b,c])=>board[a]===o&&board[b]===o&&board[c]===o))return{score:-10};
+    if(board.every(v=>v))return{score:0};
+    const m=[];
+    board.forEach((v,i)=>{if(v)return;board[i]=p;m.push({idx:i,score:-aiBest(o).score});board[i]='';});
+    return m.sort((a,b)=>b.score-a.score)[0];
+  }
+
+  init();
+</script>
+</body>
+</html>
